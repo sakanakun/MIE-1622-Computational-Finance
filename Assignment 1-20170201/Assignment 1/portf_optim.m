@@ -2,6 +2,7 @@ clc;
 clear all;
 format long
 
+addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio1262\cplex\matlab\x64_win64');
 % Input files
 input_file_returns = 'Returns.csv';
 input_file_prices  = 'Daily_closing_prices.csv';
@@ -59,8 +60,8 @@ dates_array = dates_array(:,1:3);
 % Number of strategies
 strategy_functions = {'strat_buy_and_hold' 'strat_equally_weighted' 'strat_min_variance' 'strat_max_Sharpe'};
 strategy_names     = {'Buy and Hold' 'Equally Weighted Portfolio' 'Mininum Variance Portfolio' 'Maximum Sharpe Ratio Portfolio'};
-%N_strat = 1; % comment this in your code
-N_strat = length(strategy_functions); % uncomment this in your code
+N_strat = 4; % comment this in your code
+%N_strat = length(strategy_functions); % uncomment this in your code
 fh_array = cellfun(@str2func, strategy_functions, 'UniformOutput', false);
 
 for (period = 1:N_periods)
@@ -98,16 +99,21 @@ for (period = 1:N_periods)
       end
 
       % Compute strategy
+     
       [x{strategy,period} cash{strategy,period}] = fh_array{strategy}(curr_positions, curr_cash, mu, Q, cur_prices);
-
-      % Verify that strategy is feasible (you have enough budget to re-balance portfolio)
-      
-      % Check that cash account is >= 0
+      %Weight Allocations
+      stocks = x{strategy,period} .* cur_prices';
+      %display(stocks);
+      cur_portf_value = sum(stocks);
+      %get the optimal weight for each stock at each reblance period
+      w_optimal{strategy, period} = stocks/cur_portf_value;
       
       % Check that we can buy new portfolio subject to transaction costs
-      trans_cost = 0.005*cur_prices*curr_positions;
-      %if 
-      
+
+%           %If  cash < 0, sell each stock by 1 at a time according to the
+%           weight allocation to get cash to fill the balance, the
+%           validation procedure is computed in each strategy 
+
 
       %%%%%%%%%%% Insert your code here %%%%%%%%%%%%
 
@@ -125,9 +131,72 @@ for (period = 1:N_periods)
    
 end
 
-% Plot results
+% Plot results (refer to lecture 3 and 4)
 % figure(1);
 %%%%%%%%%%% Insert your code here %%%%%%%%%%%%
-% Add path to CPLEX
-addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio1262\cplex\matlab\x64_win64');
+figure(1);
+%Chart for The daily value of portfolio for each trading strategy
+for(strategy = 1:4)
+    plot(portf_value{strategy});
+    axis([0 600 0.8*10^6 2.4*10^6]);
+    title('Daily Value of Portfolio 2005');
+    xlabel('Trading Days');
+    ylabel('Daily Value (in Millions)');
+    legend('Buy and Hold', 'Equally Weighted Portfolio', 'Mininum Variance Portfolio' ,'Maximum Sharpe Ratio Portfolio');
+    hold on;
+end
 
+%Charts for Portfolio Allocations
+
+periods = 12;
+num_of_stocks = 20;
+y = zeros(4, num_of_stocks, periods);
+% get the data set for daily optimal weights for each strategy at each
+% reblance period
+for i = 1:4
+    for j =1:12
+        for k =1:20
+            y(i,k,j) = w_optimal{i,j}(k);
+        end
+    end
+end
+
+   figure();
+  %Chart for min variance portforlio allocation 
+  for strategy = 3:4
+    for k = 1:num_of_stocks
+        w_plot  = zeros(1,12);
+              for period = 1:12       
+            w_plot(period) = y(strategy,k,period);
+              end
+        subplot(2,1,1)
+        plot(w_plot);
+         axis([0 12 -0.1 1.0]);
+    title('Min Variance -Dynamic Portfolio Allocations Portfolio 2005&2006');
+    xlabel('Rebalance Period');
+    ylabel('Portforlio Weight');
+    %legend('MSFT', 'F','CRAY', 'GOOG',	'HPQ','YHOO',	'JAVA',	'DELL',	'AAPL',	'IBM','LNVGY','CSCO',	'BAC',	'INTC',	'AMD','SNE',	'NVDA', 'AMZN', 'CREAF','EK');
+    hold on;
+    
+    end
+    
+    
+%Chart for max_sharpe portforlio allocation
+    for k = 1:num_of_stocks
+        w_plot  = zeros(1,12);
+        for period = 1:12
+            w_plot(period) = y(4,k,period);
+            %display(w_plot);
+           
+        end
+        subplot(2,1,2)
+        plot(w_plot);
+         axis([0 12 -0.1 1.0]);
+    title('Max Sharpe -Dynamic Portfolio Allocations Portfolio 2005&2006');
+    xlabel('Rebalance Period');
+    ylabel('Portforlio Weight');
+    legend('MSFT', 'F',	'CRAY', 'GOOG',	'HPQ','YHOO','JAVA','DELL',	'AAPL',	'IBM','LNVGY','CSCO',	'BAC',	'INTC',	'AMD','SNE',	'NVDA', 'AMZN', 'CREAF','EK');
+    hold on;
+    
+    end
+  end
